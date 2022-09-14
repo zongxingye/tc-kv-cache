@@ -39,6 +39,8 @@ func (f *Fsm) Apply(l *raft.Log) interface{} {
 		f.DataBase.Engine.Del(context.TODO(),key)
 	return nil
 	}
+	//z add
+	// z rem
 	return nil
 }
 

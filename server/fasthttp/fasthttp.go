@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 	"sync/atomic"
+	"tc-kv-cache/client"
 	"tc-kv-cache/myraft"
 
 	//e "tc-kv-cache/db/leveldb"
@@ -40,7 +41,8 @@ type HttpServer struct {
 
 func NewFastHTTPSr(ctx *raft.Raft,	fsm *fsm.Fsm)HttpServer {
 	server := HttpServer{
-
+		ctx: ctx,
+		fsm: fsm,
 	}
 	flag.Parse()
 
@@ -125,16 +127,25 @@ func (h *HttpServer)Register(r *router.Router) {
 		}
 	})
 	r.POST("/add", func(ctx *fasthttp.RequestCtx) {
-		// 不是leader直接报错了
-		if atomic.LoadInt64(&global_mata.IsLeader) == 0 {
-			ctx.WriteString("not leader")
-			return
-		}
+
 		// parse JSON body
 		var add = iface.KV{}
 		body := ctx.PostBody()
 		if e := json.Unmarshal(body, &add); e != nil {
 			ctx.Error(e.Error(), fasthttp.StatusBadRequest)
+			return
+		}
+
+		// 不是leader应该直接通知给leader写入
+		if atomic.LoadInt64(&global_mata.IsLeader) == 0 {
+			//ctx.WriteString("not leader")
+			leaderHost:=myraft.GetLeaderIp(h.ctx)
+			err := client.TellLeaderSet(leaderHost,"add",add.Key,add.Value)
+			if err != nil {
+				ctx.WriteString("error:"+err.Error())
+			}else {
+				ctx.WriteString("ok")
+			}
 			return
 		}
 		//err := engine.Add(context.Background(), add.Key, add.Value)

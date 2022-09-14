@@ -9,9 +9,9 @@ import (
 var ErrNotFound = errors.New("404, not found")
 
 //var DataDIR = "data"
-var DataDIR = "test2/local/data"
-var LdbDIR = "test2/local/data"
-var RoseDBDIR = "test2/rosedb"
+var DataDIR = "test/local/data"
+var LdbDIR = "test/local/data"
+var RoseDBDIR = "test/rosedb"
 
 // prod path
 //var DataDIR = "/data"
