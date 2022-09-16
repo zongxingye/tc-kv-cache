@@ -60,3 +60,7 @@ type ScRange struct {
 func CRC32(str string) uint32 {
 	return crc32.ChecksumIEEE([]byte(str))
 }
+type TellBody struct {
+	Key string `json:"key"`
+	Val interface{} `json:"val"`
+}

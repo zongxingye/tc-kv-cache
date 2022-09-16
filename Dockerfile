@@ -8,4 +8,5 @@ RUN go env -w GOPROXY=https://goproxy.cn,direct
 COPY . .
 RUN go mod tidy
 RUN GOOS=linux CGO_ENABLED=1 GOARCH=amd64 go build -o dockermain
+RUN #chmod 777 dockermain
 ENTRYPOINT ["./dockermain"]

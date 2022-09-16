@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"strings"
 	"sync"
 	"tc-kv-cache/db/leveldb"
+	"tc-kv-cache/iface"
 
 	"github.com/hashicorp/raft"
 )
@@ -25,22 +27,60 @@ func NewFsm() *Fsm {
 
 func (f *Fsm) Apply(l *raft.Log) interface{} {
 	fmt.Println("apply data:", string(l.Data))
-	data := strings.Split(string(l.Data), ",")
+	data := strings.Split(string(l.Data), "@")
 	op := data[0]
+	log.Println("op为:",op)
 	if op == "set" {
 		key := data[1]
 		value := data[2]
 		f.DataBase.Set(key, value)
-		f.DataBase.Engine.Add(context.TODO(),key,value)
+		if err := f.DataBase.Engine.Add(context.TODO(),key,value);err != nil {
+			log.Println("set失败，：",err)
+		}
 		return nil
 	}
 	if op == "del" {
 		key := data[1]
-		f.DataBase.Engine.Del(context.TODO(),key)
+		if err := f.DataBase.Engine.Del(context.TODO(),key); err != nil {
+			log.Println("del失败，：",err)
+		}
 	return nil
 	}
-	//z add
-	// z rem
+	if op == "zadd" {
+		key := data[1]
+		svStr := data[2]
+		sv := iface.SV{}
+		json.Unmarshal([]byte(svStr),&sv)
+		if err := f.DataBase.Engine.ZAdd(context.Background(), key, sv);err != nil {
+			log.Println("zadd失败，：",err)
+		}
+		return nil
+	}
+	if op == "batch" {
+		reqStr := data[1]
+		log.Println("打印一下reqstr",reqStr)
+		req := []iface.KV{}
+		err := json.Unmarshal([]byte(reqStr),&req)
+		if err != nil {
+			log.Println("Unmarshal, failed ：",err)
+			return err
+		}
+		log.Println("batch, unmarshal ：",req)
+		if err := f.DataBase.Engine.Batch(context.Background(), req); err != nil {
+			log.Println("batch失败，：",err)
+
+		}
+
+	}
+	if op == "zrmv"{
+		key := data[1]
+		value := data[2]
+		if err := f.DataBase.Engine.ZRmv(context.Background(), key,value); err != nil {
+			log.Println("zrmv失败，：",err)
+		}
+	}
+
+
 	return nil
 }
 

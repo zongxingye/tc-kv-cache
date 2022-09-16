@@ -140,7 +140,7 @@ func (h *HttpServer)Register(r *router.Router) {
 		if atomic.LoadInt64(&global_mata.IsLeader) == 0 {
 			//ctx.WriteString("not leader")
 			leaderHost:=myraft.GetLeaderIp(h.ctx)
-			err := client.TellLeaderSet(leaderHost,"add",add.Key,add.Value)
+			err := client.TellLeader(leaderHost,"add",add)
 			if err != nil {
 				ctx.WriteString("error:"+err.Error())
 			}else {
@@ -154,7 +154,7 @@ func (h *HttpServer)Register(r *router.Router) {
 		//	return
 		//}
 		// raft.apply
-		data := "set"+","+add.Key+","+add.Value
+		data := "set"+"@"+add.Key+"@"+add.Value
 		future := h.ctx.Apply([]byte(data),5*time.Second)
 		if err := future.Error(); err != nil {
 			ctx.WriteString("error:"+err.Error())
@@ -165,23 +165,24 @@ func (h *HttpServer)Register(r *router.Router) {
 
 	//只定义了200
 	r.GET("/del/{key}", func(ctx *fasthttp.RequestCtx) {
-		// 不是leader直接报错了
-		if atomic.LoadInt64(&global_mata.IsLeader) == 0 {
-			ctx.WriteString("not leader")
-			return
-		}
+
 		key, ok := ctx.UserValue("key").(string)
 		if !ok {
 			ctx.Error("未获取到key", fasthttp.StatusBadGateway)
 			return
 		}
-		//err := engine.Del(context.Background(), key)
-		//if err != nil {
-		//	ctx.Error(err.Error(), 500)
-		//	return
-		//}
-		// raft.apply
-		data := "del"+","+key
+		// leader转发
+		if atomic.LoadInt64(&global_mata.IsLeader) == 0 {
+			leaderHost:=myraft.GetLeaderIp(h.ctx)
+			err:= client.TellLeader(leaderHost,"del",key)
+			if err != nil {
+				ctx.WriteString("error:"+err.Error())
+			}else {
+				ctx.WriteString("ok")
+			}
+			return
+		}
+		data := "del"+"@"+key
 		future := h.ctx.Apply([]byte(data),5*time.Second)
 		if err := future.Error(); err != nil {
 			ctx.WriteString("error:"+err.Error())
@@ -228,14 +229,34 @@ func (h *HttpServer)Register(r *router.Router) {
 
 			return
 		}
-		engine :=h.fsm.DataBase.Engine
-		err := engine.Batch(context.Background(), req)
-		if err != nil {
-			ctx.Error(fasthttp.StatusMessage(fasthttp.StatusBadRequest), fasthttp.StatusBadRequest)
 
+		// leader转发
+		if atomic.LoadInt64(&global_mata.IsLeader) == 0 {
+			leaderHost:=myraft.GetLeaderIp(h.ctx)
+			err:= client.TellLeader(leaderHost,"batch",req)
+			if err != nil {
+				ctx.WriteString("error:"+err.Error())
+			}else {
+				ctx.WriteString("ok")
+			}
+			return
+		}
+		reqByt,_ := json.Marshal(req)
+		data := "batch"+"@"+string(reqByt)
+		future := h.ctx.Apply([]byte(data),5*time.Second)
+		if err := future.Error(); err != nil {
+			ctx.WriteString("error:"+err.Error())
 			return
 		}
 		ctx.WriteString("ok")
+		//engine :=h.fsm.DataBase.Engine
+		//err := engine.Batch(context.Background(), req)
+		//if err != nil {
+		//	ctx.Error(fasthttp.StatusMessage(fasthttp.StatusBadRequest), fasthttp.StatusBadRequest)
+		//
+		//	return
+		//}
+		//ctx.WriteString("ok")
 	})
 
 	r.POST("/zadd/{key}", func(ctx *fasthttp.RequestCtx) {
@@ -251,13 +272,37 @@ func (h *HttpServer)Register(r *router.Router) {
 			ctx.Error(e.Error(), 500)
 			return
 		}
-		engine :=h.fsm.DataBase.Engine
-		err := engine.ZAdd(context.Background(), key, sv)
-		if err != nil {
-			ctx.Error(err.Error(), 500)
+
+		// leader转发
+		tell := iface.TellBody{
+			Key: key,
+			Val: sv,
+		}
+		if atomic.LoadInt64(&global_mata.IsLeader) == 0 {
+			leaderHost:=myraft.GetLeaderIp(h.ctx)
+			err:= client.TellLeader(leaderHost,"zadd",tell)
+			if err != nil {
+				ctx.WriteString("error:"+err.Error())
+			}else {
+				ctx.WriteString("ok")
+			}
+			return
+		}
+		svByt,_ := json.Marshal(sv)
+		data := "zadd"+"@"+key +"@"+string(svByt)
+		future := h.ctx.Apply([]byte(data),5*time.Second)
+		if err := future.Error(); err != nil {
+			ctx.WriteString("error:"+err.Error())
 			return
 		}
 		ctx.WriteString("ok")
+		//engine :=h.fsm.DataBase.Engine
+		//err := engine.ZAdd(context.Background(), key, sv)
+		//if err != nil {
+		//	ctx.Error(err.Error(), 500)
+		//	return
+		//}
+		//ctx.WriteString("ok")
 	})
 
 	//404 he key can not be found in the cache
@@ -304,13 +349,32 @@ func (h *HttpServer)Register(r *router.Router) {
 			ctx.Error("未获取到value", 502)
 			return
 		}
-		engine :=h.fsm.DataBase.Engine
-		err := engine.ZRmv(context.Background(), key, value)
-		if err != nil {
-			ctx.Error(err.Error(), 500)
+		if atomic.LoadInt64(&global_mata.IsLeader) == 0 {
+			leaderHost:=myraft.GetLeaderIp(h.ctx)
+			err:= client.TellLeader(leaderHost,"zrmv",key+"/"+value)
+			if err != nil {
+				ctx.WriteString("error:"+err.Error())
+			}else {
+				ctx.WriteString("ok")
+			}
+			return
+		}
+
+
+		data := "zrmv"+"@"+key +"@"+value
+		future := h.ctx.Apply([]byte(data),5*time.Second)
+		if err := future.Error(); err != nil {
+			ctx.WriteString("error:"+err.Error())
 			return
 		}
 		ctx.WriteString("ok")
+		//engine :=h.fsm.DataBase.Engine
+		//err := engine.ZRmv(context.Background(), key, value)
+		//if err != nil {
+		//	ctx.Error(err.Error(), 500)
+		//	return
+		//}
+		//ctx.WriteString("ok")
 	})
 
 	//---------------------test--------------------
