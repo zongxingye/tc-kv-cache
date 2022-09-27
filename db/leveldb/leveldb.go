@@ -18,7 +18,7 @@ type Engine struct {
 func NewEngine() *Engine {
 	//db, err := leveldb.OpenFile(iface.DataDIR, nil)
 	db, err := leveldb.RecoverFile(global_mata.DbDir, &opt.Options{
-		BlockCacheCapacity: 1024 * opt.MiB * 16,
+		//BlockCacheCapacity: 1024 * opt.MiB * 16,
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -70,6 +70,99 @@ func (s *Engine) Init(ctx context.Context) {
 	go func() {
 		s.Batch(ctx, kvs)
 	}()
+	iter.Release()
+}
+func (s *Engine) Init1(ctx context.Context) {
+	for s.ldb == nil {
+	}
+
+	db, err := leveldb.OpenFile(iface.DataDIR31, nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer db.Close()
+	iter := db.NewIterator(nil, nil)
+
+	var i = 0
+	var kvs []iface.KV
+	for iter.Next() {
+		i++
+		kvs = append(kvs, iface.KV{Key: string(iter.Key()), Value: string(iter.Value())})
+		if i == 1000 {
+			kvsBak := kvs
+			i = 0
+			kvs = []iface.KV{}
+
+			s.Batch(ctx, kvsBak)
+
+		}
+	}
+
+	s.Batch(ctx, kvs)
+
+	iter.Release()
+}
+func (s *Engine) Init2(ctx context.Context) {
+	for s.ldb == nil {
+	}
+
+	db, err := leveldb.OpenFile(iface.DataDIR32, nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer db.Close()
+	iter := db.NewIterator(nil, nil)
+
+	var i = 0
+	var kvs []iface.KV
+	for iter.Next() {
+		i++
+		kvs = append(kvs, iface.KV{Key: string(iter.Key()), Value: string(iter.Value())})
+		if i == 1000 {
+			kvsBak := kvs
+			i = 0
+			kvs = []iface.KV{}
+
+			s.Batch(ctx, kvsBak)
+
+		}
+	}
+
+	s.Batch(ctx, kvs)
+
+	iter.Release()
+}
+func (s *Engine) Init3(ctx context.Context) {
+	for s.ldb == nil {
+	}
+
+	db, err := leveldb.OpenFile(iface.DataDIR33, nil)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+	defer db.Close()
+	iter := db.NewIterator(nil, nil)
+
+	var i = 0
+	var kvs []iface.KV
+	for iter.Next() {
+		i++
+		kvs = append(kvs, iface.KV{Key: string(iter.Key()), Value: string(iter.Value())})
+		if i == 1000 {
+			kvsBak := kvs
+			i = 0
+			kvs = []iface.KV{}
+
+			s.Batch(ctx, kvsBak)
+
+		}
+	}
+
+	s.Batch(ctx, kvs)
+
 	iter.Release()
 }
 

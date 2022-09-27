@@ -70,7 +70,7 @@ func Bootstrap(rf *raft.Raft, raftId, raftAddr, raftCluster string) {
 			addr := peer[1]
 			// 填充一下global都addrmap
 			//global_mata.AddrMap[addr] = addr[:len(addr)-2] +addr[len(addr)-4:len(addr)-2]   测试用例
-			global_mata.AddrMap[addr] = addr[:len(addr)-4]+":8080"
+			global_mata.AddrMap[addr] = addr[:len(addr)-4]+"8080"
 		}
 		log.Printf("%+v",global_mata.AddrMap)
 		return

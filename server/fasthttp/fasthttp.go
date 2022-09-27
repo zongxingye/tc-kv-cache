@@ -1,12 +1,14 @@
 package fasthttp
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
 	"github.com/hashicorp/raft"
 	"github.com/spf13/cast"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -23,7 +25,6 @@ import (
 
 	//e "wecc/engines/rosedb"
 	//e "wecc/engines/simple"
-
 
 	"github.com/fasthttp/router"
 	"github.com/valyala/fasthttp"
@@ -53,6 +54,93 @@ func NewFastHTTPSr(ctx *raft.Raft,	fsm *fsm.Fsm)HttpServer {
 }
 
 func (h *HttpServer)Register(r *router.Router) {
+	var myRaft1 *raft.Raft
+	var fm *fsm.Fsm
+	// 判断集群是否第一次启动
+	if iface.Exists(iface.ClusterDIr){
+		fileInfoList,err := ioutil.ReadDir(iface.ClusterDIr)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if len(fileInfoList) >0 {
+			//raftId :=fileInfoList[0].Name()
+			//myRaft, fm, err := myraft.NewMyRaft("0.0.0.0"+":8088", cast.ToString(raftId), "/node/"+raftId)
+			//if err != nil {
+			//	fmt.Println("NewMyRaft error ", err)
+			//	os.Exit(1)
+			//	return
+			//}
+
+			//h.fsm = fm
+			//h.ctx = myRaft
+
+			clusterGroup := make([]string,0)
+			// 读取/node/{raftId}/group.txt
+			filePths,err := iface.GetAllFiles(iface.ClusterDIr)
+			if err != nil {
+				log.Println("GetAllFiles failed",err)
+				return
+			}
+			func(){
+				if len(filePths) != 1 {
+					panic("filePths not found")
+				}
+				file, err := os.OpenFile(filePths[0], os.O_RDWR|os.O_CREATE, 0666)
+				if err != nil {
+					fmt.Println("文件打开失败", err)
+				}
+				//及时关闭file句柄
+				defer file.Close()
+				body ,err :=ioutil.ReadAll(file)
+				if err != nil {
+					panic("ReadAll not ok")
+				}
+				var req iface.UpdateCluster
+
+				if e := json.Unmarshal(body, &req); e != nil {
+					panic("Unmarshal not ok")
+
+					return
+				}
+				raftId:= req.Index
+				raftDir := iface.ClusterDIr + cast.ToString(raftId)
+
+				raftIp := req.Hosts[req.Index-1]
+				// 初始化raft
+				myRaft1, fm, err = myraft.NewMyRaft(raftIp+":8088", cast.ToString(raftId), raftDir)
+				if err != nil {
+					fmt.Println("NewMyRaft error ", err)
+					os.Exit(1)
+					return
+				}
+				h.fsm = fm
+				h.ctx = myRaft1
+
+				for i,v := range req.Hosts{
+					clusterGroup = append(clusterGroup, cast.ToString(i+1) + "/"+v+":8088")
+				}
+			}()
+
+
+
+
+			myraft.Bootstrap(h.ctx, "todo", "todo",strings.Join(clusterGroup,",") )
+			go func() {
+				for leader := range myRaft1.LeaderCh() {
+					if leader {
+						atomic.StoreInt64(&global_mata.IsLeader, 1)
+					} else {
+						atomic.StoreInt64(&global_mata.IsLeader, 0)
+					}
+				}
+			}()
+
+		}
+
+
+	}
+
 	//var engine = e.NewEngine()
 	//engine :=h.fsm.DataBase.Engine
 	r.POST("/updateCluster", func(ctx *fasthttp.RequestCtx) {
@@ -64,7 +152,7 @@ func (h *HttpServer)Register(r *router.Router) {
 		}
 		// 初始化initraft
 		raftId:= req.Index
-		raftDir := "node/raft_" + cast.ToString(raftId)
+		raftDir := iface.ClusterDIr + cast.ToString(raftId)
 		os.MkdirAll(raftDir, 0700)
 		raftIp := req.Hosts[req.Index-1]
 		// 初始化raft
@@ -94,14 +182,40 @@ func (h *HttpServer)Register(r *router.Router) {
 				}
 			}
 		}()
+		// 启动成功，向/node/{raftId}中写入集群的信息
+		func(){
+			file, err := os.OpenFile(iface.ClusterDIr+cast.ToString(req.Index)+"/group.txt", os.O_WRONLY|os.O_CREATE, 0666)
+			if err != nil {
+				fmt.Println("文件打开失败", err)
+			}
+			//及时关闭file句柄
+			defer file.Close()
+			//写入文件时，使用带缓存的 *Writer
+			write := bufio.NewWriter(file)
+
+				write.Write(body)
+
+			//Flush将缓存的文件真正写入到文件中
+			write.Flush()
+		}()
+
+
+
 	})
 
+	//r.GET("/init", func(ctx *fasthttp.RequestCtx) {
+	//	engine :=h.fsm.DataBase.Engine
+	//	engine.Init(context.Background())
+	//	ctx.WriteString("ok")
+	//})
 	r.GET("/init", func(ctx *fasthttp.RequestCtx) {
-		engine :=h.fsm.DataBase.Engine
-		engine.Init(context.Background())
+		//engine :=h.fsm.DataBase.Engine
+		// 从data1 2 3 中读取数据并写入集群
+		//engine.Init1(context.Background())
+		//engine.Init2(context.Background())
+		//engine.Init3(context.Background())
 		ctx.WriteString("ok")
 	})
-
 	r.GET("/query/{key}", func(ctx *fasthttp.RequestCtx) {
 
 		key, ok := ctx.UserValue("key").(string)

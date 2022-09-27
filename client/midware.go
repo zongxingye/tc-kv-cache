@@ -64,7 +64,8 @@ func TellLeaderAdd(host,path string,ky,val string)  error{
 	fmt.Println("url是：",apiUrl.String())
 	resp,err := httpClient.Post(apiUrl.String(),"Content-Type: application/json",bytes.NewReader(jsonstr))
 	if err != nil || resp.StatusCode != 200 {
-		return errors.New("err")
+		return errors.New(fmt.Sprintf("err: %v, resp : %+v ",err,resp))
+
 	}
 	log.Println(resp)
 	return nil
@@ -82,7 +83,8 @@ func TellLeaderDel(host,path ,key string) error {
 	fmt.Println("url是：",apiUrl.String())
 	resp,err := httpClient.Get(apiUrl.String())
 	if err != nil || resp.StatusCode != 200 {
-		return errors.New("err")
+		return errors.New(fmt.Sprintf("err: %v, resp : %+v ",err,resp))
+
 	}
 	log.Println(resp)
 	return nil
@@ -101,7 +103,8 @@ func TellLeaderZadd(host,path,key string,sv iface.SV)  error{
 	fmt.Println("url是：",apiUrl.String())
 	resp,err := httpClient.Post(apiUrl.String(),"Content-Type: application/json",bytes.NewReader(jsonstr))
 	if err != nil || resp.StatusCode != 200 {
-		return errors.New("err")
+
+		return errors.New(fmt.Sprintf("err: %v, resp : %+v ",err,resp))
 	}
 	log.Println(resp)
 	return nil
@@ -118,7 +121,8 @@ func TellLeaderBatch(host,path string,kvs []iface.KV)  error{
 	fmt.Println("url是：",apiUrl.String())
 	resp,err := httpClient.Post(apiUrl.String(),"Content-Type: application/json",bytes.NewReader(jsonstr))
 	if err != nil || resp.StatusCode != 200 {
-		return errors.New("err")
+		return errors.New(fmt.Sprintf("err: %v, resp : %+v ",err,resp))
+
 	}
 	log.Println(resp)
 	return nil
@@ -136,7 +140,8 @@ func TellLeaderZrem(host,path ,key string) error {
 	fmt.Println("url是：",apiUrl.String())
 	resp,err := httpClient.Get(apiUrl.String())
 	if err != nil || resp.StatusCode != 200 {
-		return errors.New("err")
+		return errors.New(fmt.Sprintf("err: %v, resp : %+v ",err,resp))
+
 	}
 	log.Println(resp)
 	return nil
